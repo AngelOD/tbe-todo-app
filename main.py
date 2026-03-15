@@ -10,7 +10,8 @@ from add_task_dialog import AddTaskDialog
 
 class TbeToDo:
     def __init__(self):
-        self.tasks: list[Task] = []
+        self.tasks = {}
+        self.selected_task: Task | None = None
 
         self.app: tb.Window | None = None
         self.task_list: tb.Treeview | None = None
@@ -23,13 +24,15 @@ class TbeToDo:
         self.app.mainloop()
 
     def setup_ui(self):
-        self.app = tb.Window(title="TBE ToDo", themename="vapor")
+        self.app = tb.Window(title="TBE ToDo", themename="superhero")
         self.app.geometry("1200x800")
 
         top_bar = tb.Frame(self.app, bootstyle=SECONDARY)
         top_bar.pack(fill=X, padx=5, pady=5)
 
         tb.Button(top_bar, text="Add Task", bootstyle=SUCCESS, command=self._on_add_task).pack(side=LEFT, padx=5, pady=5)
+        tb.Button(top_bar, text="Add Subtask", bootstyle=SUCCESS, command=self._on_add_subtask).pack(side=LEFT, padx=5, pady=5)
+        tb.Button(top_bar, text="Edit Task", bootstyle=WARNING, command=self._on_edit_task).pack(side=LEFT, padx=5, pady=5)
         tb.Button(top_bar, text="Clear Tasks", bootstyle=DANGER, command=self.populate_task_list).pack(side=LEFT, padx=5, pady=5)
 
         main_grid = tb.Frame(self.app, bootstyle=LIGHT)
@@ -46,7 +49,7 @@ class TbeToDo:
 
         self.task_list = tb.Treeview(main_grid, columns=("State", "Importance"), selectmode=BROWSE, bootstyle=(LIGHT, SUNKEN))
         self.task_list.pack(fill=BOTH, expand=True)
-        self.task_list.bind("<<TreeviewSelect>>", lambda e: print(self.task_list.focus()))
+        self.task_list.bind("<<TreeviewSelect>>", self._on_task_selected)
 
     def populate_task_list(self):
         if len(get_all_tasks()) == 0:
@@ -66,12 +69,15 @@ class TbeToDo:
 
             save_all_tasks(tasks)
 
-        tasks = get_all_tasks()
+        db_tasks = get_all_tasks()
+
+        for t in db_tasks:
+            self.tasks[t.id] = t
 
         for i in self.task_list.get_children():
             self.task_list.delete(i)
 
-        for t in tasks:
+        for t in self.tasks.values():
             if not self.task_list.exists(t.id):
                 self.task_list.insert(
                     t.parent_id if t.parent_id is not None else "",
@@ -83,10 +89,32 @@ class TbeToDo:
                 )
 
     def _on_add_task(self):
-        dialog = AddTaskDialog(self.app)
+        dialog = AddTaskDialog(self.app, is_root=True)
         self.app.wait_window(dialog)
 
         print(dialog.result)
+
+    def _on_add_subtask(self):
+        if self.selected_task is None:
+            return
+
+        dialog = AddTaskDialog(self.app, is_root=False)
+        self.app.wait_window(dialog)
+
+        print(dialog.result)
+
+    def _on_edit_task(self):
+        if self.selected_task is None:
+            return
+
+        dialog = AddTaskDialog(self.app, self.selected_task, is_root=self.selected_task.level == 0)
+        self.app.wait_window(dialog)
+
+        print(dialog.result)
+
+    def _on_task_selected(self, event):
+        self.selected_task = self.tasks[self.task_list.focus()]
+        print(self.selected_task)
 
 
 if __name__ == "__main__":

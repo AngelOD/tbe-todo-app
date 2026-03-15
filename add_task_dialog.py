@@ -1,13 +1,13 @@
 import ttkbootstrap as tb
 from ttkbootstrap.constants import *
-from models.enums import TaskImportance, TaskState
+from models.enums import TaskImportance
 from models import Task
 
 class AddTaskDialog(tb.Toplevel):
-    def __init__(self, parent):
+    def __init__(self, parent: tb.Window | None, task: Task | None = None, is_root: bool = False):
         super().__init__(title="Add Task", size=(400, 350), resizable=(False, False))
-        self.position_center()
 
+        self.position_center()
         self.grab_set()
 
         self.result = None
@@ -18,21 +18,23 @@ class AddTaskDialog(tb.Toplevel):
 
         # ----- Title Entry -----
         tb.Label(container, text="Title:").pack(fill=X, pady=(0, 5))
-        self.title_var = tb.StringVar()
+        self.title_var = tb.StringVar(value=task.title if task else None)
         self.title_entry = tb.Entry(container, textvariable=self.title_var)
         self.title_entry.pack(fill=X, pady=(0, 15))
         self.title_entry.focus_set()
 
         # ----- Importance Dropdown -----
-        tb.Label(container, text="Importance:").pack(fill=X, pady=(0, 5))
-        self.importance_var = tb.StringVar(value=TaskImportance.MEDIUM.value)
-        self.importance_combo = tb.Combobox(
-            container,
-            textvariable=self.importance_var,
-            values=[e.value for e in TaskImportance],
-            state=READONLY
-        )
-        self.importance_combo.pack(fill=X, pady=(0, 15))
+        self.importance_var = tb.StringVar()
+        if is_root:
+            tb.Label(container, text="Importance:").pack(fill=X, pady=(0, 5))
+            self.importance_var.set(TaskImportance(task.importance).value if task and task.importance else TaskImportance.MEDIUM.value)
+            self.importance_combo = tb.Combobox(
+                container,
+                textvariable=self.importance_var,
+                values=[e.value for e in TaskImportance],
+                state=READONLY
+            )
+            self.importance_combo.pack(fill=X, pady=(0, 15))
 
         # Buttons
         btn_frame = tb.Frame(container)
@@ -47,5 +49,6 @@ class AddTaskDialog(tb.Toplevel):
     def on_submit(self):
         self.result = {
             "title": self.title_var.get(),
+            "importance": TaskImportance(self.importance_var.get()) if self.importance_var.get() else None,
         }
         self.destroy()
