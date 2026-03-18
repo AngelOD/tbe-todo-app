@@ -1,6 +1,7 @@
 import random
 import uuid
 import ttkbootstrap as tb
+from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.constants import *
 from models import Task
 from models.enums import TaskImportance, TaskState
@@ -170,6 +171,11 @@ class TbeToDo:
 
     def _on_remove_task(self):
         if self.selected_task is None:
+            return
+
+        res = Messagebox.yesno(f"Are you sure you want to remove {self.selected_task.title} (with subtasks)?\nThis CANNOT be undone!", "Really delete?", alert=True)
+
+        if res != "Yes":
             return
 
         remove_task(self.selected_task.id)
