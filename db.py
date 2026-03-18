@@ -74,17 +74,17 @@ def get_all_tasks() -> List[Task]:
 
 def remove_task(task_id: str) -> None:
     """Remove a task from the database."""
-    subtask_ids = _get_subtask_ids_for_parent(task_id)
+    to_remove = _get_all_ids_for_removal(task_id)
 
-    print(f"Removing task with ID: {task_id}")
-    print(f"Subtask IDs: {subtask_ids}")
-
-    for subtask_id in subtask_ids:
-        remove_task(subtask_id)
+    print(f"Removing task {task_id} (total deletions: {len(to_remove)})")
 
     with sqlite3.connect(db_name) as conn:
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM tasks WHERE id IN (?)", (", ".join(subtask_ids + [task_id]),))
+
+        query = "DELETE FROM tasks WHERE id=?"
+        params = [(id,) for id in to_remove]
+        cursor.executemany(query, params)
+
 
 def save_all_tasks(tasks: List[Task]) -> None:
     """Save all tasks to the database."""
@@ -106,12 +106,26 @@ def update_task(task: Task) -> None:
 
 
 # ---- Private Functions ----
-def _get_subtask_ids_for_parent(parent_id: str) -> List[str]:
-    """Get the IDs of all subtasks for a given parent ID."""
+def _get_all_ids_for_removal(task_id: str) -> List[str]:
+    """Get all IDs for tasks to be removed."""
+    to_remove = []
+    to_check = [task_id]
+
     with sqlite3.connect(db_name) as conn:
         cursor = conn.cursor()
-        cursor.execute("SELECT id FROM tasks WHERE parent_id=?", (parent_id,))
-        return [row[0] for row in cursor.fetchall()]
+
+        while True:
+            if len(to_check) == 0:
+                break
+
+            next_task_id = to_check.pop()
+            to_remove.append(next_task_id)
+
+            cursor.execute("SELECT id FROM tasks WHERE parent_id=?", (next_task_id,))
+            subtask_ids = [row[0] for row in cursor.fetchall()]
+            to_check.extend(subtask_ids)
+
+    return to_remove
 
 def _get_table_version(table_name: str) -> int:
     """Get the version of a table in the SQLite database."""
