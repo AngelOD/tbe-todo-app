@@ -38,11 +38,14 @@ class AddTaskDialog(tb.Toplevel):
 
         # ----- Notes -----
         tb.Label(container, text="Notes:").pack(fill=X, pady=(0, 5))
-        self.notes_var = tb.StringVar(value=task.note if task else None)
         self.notes_text = tb.Text(container, wrap=WORD)
         ys = tb.Scrollbar(container, orient=VERTICAL, command=self.notes_text.yview)
         self.notes_text.config(yscrollcommand=ys.set)
         self.notes_text.pack(fill=BOTH, expand=YES, pady=(0, 15))
+
+        self.notes_text.delete("1.0", "end")
+        if task.note is not None:
+            self.notes_text.insert("1.0", task.note)
 
         # Buttons
         btn_frame = tb.Frame(container)
