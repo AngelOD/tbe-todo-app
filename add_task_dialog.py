@@ -5,7 +5,7 @@ from models import Task
 
 class AddTaskDialog(tb.Toplevel):
     def __init__(self, parent: tb.Window | None, task: Task | None = None, is_root: bool = False):
-        super().__init__(title="Add Task", size=(400, 350), resizable=(False, False))
+        super().__init__(parent=parent, title="Add Task", size=(400, 350), resizable=(False, False))
 
         self.position_center()
         self.grab_set()
@@ -40,7 +40,11 @@ class AddTaskDialog(tb.Toplevel):
         btn_frame = tb.Frame(container)
         btn_frame.pack(fill=X)
 
-        self.submit_btn = tb.Button(btn_frame, text="Create Task", bootstyle=SUCCESS, command=self.on_submit)
+        submit_button_text = "Create Task" if not task else "Update Task"
+        if not is_root:
+            submit_button_text = submit_button_text.replace("Task", "Subtask")
+
+        self.submit_btn = tb.Button(btn_frame, text=submit_button_text, bootstyle=SUCCESS, command=self.on_submit)
         self.submit_btn.pack(side=RIGHT, padx=5)
 
         self.cancel_btn = tb.Button(btn_frame, text="Cancel", bootstyle=DANGER, command=self.destroy)
