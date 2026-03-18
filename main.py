@@ -133,7 +133,7 @@ class TbeToDo:
             importance = dialog.result["importance"] if "importance" in dialog.result else None
             state = TaskState.NEW
 
-            add_task(Task(id=str(uuid.uuid4()), title=title, importance=importance, state=state))
+            add_task(Task(id=str(uuid.uuid4()), title=title, importance=importance, state=state, note=dialog.result["notes"]))
 
             self.populate_task_list()
 
@@ -150,7 +150,7 @@ class TbeToDo:
             importance = dialog.result["importance"] if "importance" in dialog.result else None
             state = TaskState.NEW
 
-            add_task(Task(id=str(uuid.uuid4()), parent_id=parent_id, title=title, importance=importance, state=state))
+            add_task(Task(id=str(uuid.uuid4()), parent_id=parent_id, title=title, importance=importance, state=state, note=dialog.result["notes"]))
 
             self.populate_task_list()
 
@@ -164,6 +164,7 @@ class TbeToDo:
         if dialog.result is not None:
             self.selected_task.title = dialog.result["title"]
             self.selected_task.importance = dialog.result["importance"] if "importance" in dialog.result else None
+            self.selected_task.note = dialog.result["notes"]
 
             update_task(self.selected_task)
 

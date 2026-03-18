@@ -5,7 +5,7 @@ from models import Task
 
 class AddTaskDialog(tb.Toplevel):
     def __init__(self, parent: tb.Window | None, task: Task | None = None, is_root: bool = False):
-        super().__init__(parent=parent, title="Add Task", size=(400, 350), resizable=(False, False))
+        super().__init__(title="Add Task", size=(600, 700), resizable=(False, False))
 
         self.position_center()
         self.grab_set()
@@ -36,6 +36,14 @@ class AddTaskDialog(tb.Toplevel):
             )
             self.importance_combo.pack(fill=X, pady=(0, 15))
 
+        # ----- Notes -----
+        tb.Label(container, text="Notes:").pack(fill=X, pady=(0, 5))
+        self.notes_var = tb.StringVar(value=task.note if task else None)
+        self.notes_text = tb.Text(container, wrap=WORD)
+        ys = tb.Scrollbar(container, orient=VERTICAL, command=self.notes_text.yview)
+        self.notes_text.config(yscrollcommand=ys.set)
+        self.notes_text.pack(fill=BOTH, expand=YES, pady=(0, 15))
+
         # Buttons
         btn_frame = tb.Frame(container)
         btn_frame.pack(fill=X)
@@ -54,5 +62,6 @@ class AddTaskDialog(tb.Toplevel):
         self.result = {
             "title": self.title_var.get(),
             "importance": TaskImportance(self.importance_var.get()) if self.importance_var.get() else None,
+            "notes": self.notes_text.get("1.0", "end")
         }
         self.destroy()
