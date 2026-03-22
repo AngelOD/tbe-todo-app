@@ -1,12 +1,22 @@
-import random
 import uuid
+from textwrap import wrap
+
 import ttkbootstrap as tb
 from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.constants import *
+from ttkbootstrap.widgets.scrolled import ScrolledText
 from models import Task
-from models.enums import TaskImportance, TaskState
-from db import init_db, add_task, get_all_tasks, remove_task, save_all_tasks, update_task
+from models.enums import TaskState
+from db import init_db, add_task, get_all_tasks, remove_task, update_task
 from add_task_dialog import AddTaskDialog
+
+# Optional dependencies
+try:
+    from tkhtmlview import HTMLLabel
+    import markdown2
+    HAS_MARKDOWN = True
+except ImportError:
+    HAS_MARKDOWN = False
 
 
 class TbeToDo:
@@ -16,6 +26,7 @@ class TbeToDo:
 
         self.app: tb.Window | None = None
         self.task_dependent_buttons: list[tb.Button] = []
+        self.task_info: ScrolledText | None = None
         self.task_list: tb.Treeview | None = None
 
         init_db()
@@ -29,37 +40,35 @@ class TbeToDo:
         self.app = tb.Window(title="TBE ToDo", themename="superhero")
         self.app.geometry("1200x800")
 
-        # Set up top bar with buttons
-        top_bar = tb.Frame(self.app, bootstyle=SECONDARY)
-        top_bar.pack(fill=X, padx=5, pady=5)
+        self.setup_top_bar()
+        self.setup_main_content()
 
-        tb.Button(top_bar, text="Add Task", bootstyle=SUCCESS, command=self._on_add_task).pack(side=LEFT, padx=5, pady=5)
-        self.task_dependent_buttons = [
-            tb.Button(top_bar, text="Add Subtask", bootstyle=SUCCESS, command=self._on_add_subtask, state=DISABLED),
-            tb.Button(top_bar, text="Edit Task", bootstyle=WARNING, command=self._on_edit_task, state=DISABLED),
-            tb.Button(top_bar, text="Remove Task", bootstyle=DANGER, command=self._on_remove_task, state=DISABLED),
-        ]
-
-        self.task_dependent_buttons[0].pack(side=LEFT, padx=5, pady=5)
-        self.task_dependent_buttons[1].pack(side=LEFT, padx=5, pady=5)
-        self.task_dependent_buttons[2].pack(side=RIGHT, padx=5, pady=5)
-
-        # Main section with task list and info frame
-        main_grid = tb.Frame(self.app, bootstyle=LIGHT)
-        main_grid.pack(fill=BOTH, expand=True)
-
-        # Info frame on the right side
-        info_frame = tb.Frame(main_grid, bootstyle=PRIMARY, width=300)
+    def setup_info_frame(self, main_content: tb.Frame):
+        """Info frame on the right side"""
+        info_frame = tb.Frame(main_content, bootstyle=PRIMARY, width=300)
         info_frame.pack(side=RIGHT, fill=Y)
         info_frame.pack_propagate(False)
 
-        task_info = tb.Frame(info_frame, bootstyle=LIGHT)
-        task_info.pack(side=TOP, padx=5, pady=5, fill=X)
+        self.task_info = ScrolledText(info_frame, bootstyle=LIGHT, padding=10, autohide=True, wrap=WORD)
+        self.task_info.pack(fill=BOTH, expand=True)
 
-        tb.Label(task_info, text="Task Info").pack(fill=X, expand=True, padx=5, pady=5)
+        # Set up styles
+        self.task_info.tag_config("title", font=("Arial", 20, "bold"))
 
-        # Task list on the left side
-        self.task_list = tb.Treeview(main_grid, columns=("state", "importance"), selectmode=BROWSE, bootstyle=(LIGHT, SUNKEN))
+        self.task_info.text.configure(state="disabled")
+
+    def setup_main_content(self):
+        """Main section with task list and info frame"""
+        main_content = tb.Frame(self.app, bootstyle=LIGHT)
+        main_content.pack(fill=BOTH, expand=True)
+
+        self.setup_info_frame(main_content)
+        self.setup_task_list(main_content)
+
+    def setup_task_list(self, main_content: tb.Frame):
+        """Task list on the left side"""
+        self.task_list = tb.Treeview(main_content, columns=("state", "importance"), selectmode=BROWSE,
+                                     bootstyle=(LIGHT, SUNKEN))
         self.task_list.pack(fill=BOTH, expand=True)
 
         self.task_list.heading("#0", text="Task")
@@ -71,26 +80,44 @@ class TbeToDo:
 
         self.task_list.bind("<<TreeviewSelect>>", self._on_task_selected)
 
+    def setup_top_bar(self):
+        """Set up top bar with buttons"""
+        top_bar = tb.Frame(self.app, bootstyle=SECONDARY)
+        top_bar.pack(fill=X, padx=5, pady=5)
+
+        tb.Button(top_bar, text="Add Task", bootstyle=SUCCESS, command=self._on_add_task).pack(side=LEFT, padx=5, pady=5)
+        self.task_dependent_buttons = [
+            tb.Button(top_bar, text="Add Subtask", bootstyle=SUCCESS, command=self._on_add_subtask, state=DISABLED),
+            tb.Button(top_bar, text="Edit Task", bootstyle=WARNING, command=self._on_edit_task, state=DISABLED),
+            tb.Menubutton(top_bar, text="Set task state", bootstyle=INFO, state=DISABLED),
+            tb.Button(top_bar, text="Remove Task", bootstyle=DANGER, command=self._on_remove_task, state=DISABLED),
+        ]
+
+        self.task_dependent_buttons[0].pack(side=LEFT, padx=5, pady=5)
+        self.task_dependent_buttons[1].pack(side=LEFT, padx=5, pady=5)
+        self.task_dependent_buttons[2].pack(side=LEFT, padx=5, pady=5)
+        self.task_dependent_buttons[3].pack(side=RIGHT, padx=5, pady=5)
+
+        menu_btn = self.task_dependent_buttons[2]
+
+        menu = tb.Menu(menu_btn, tearoff=False)
+        for state in TaskState:
+            menu.add_command(label=state.value, command=self._get_state_selector_lambda(state))
+
+        menu_btn["menu"] = menu
+
     def populate_task_list(self):
-        if len(get_all_tasks()) == 0:
-            tasks = []
+        cur_selected = None
 
-            for i in range(20):
-                base_parent = Task(id=str(uuid.uuid4()), title=f"Task {i}", level=0, importance=random.choice(list(TaskImportance)), state=random.choice(list(TaskState)))
-                tasks.append(base_parent)
-
-                for j in range(3):
-                    sub_parent = Task(id=str(uuid.uuid4()), title=f"Subtask {i}.{j}", level=1, parent_id=base_parent.id, state=random.choice(list(TaskState)))
-                    tasks.append(sub_parent)
-
-                    for k in range(8):
-                        child = Task(id=str(uuid.uuid4()), title=f"Subtask {i}.{j}.{k}", level=2, parent_id=sub_parent.id, state=random.choice(list(TaskState)))
-                        tasks.append(child)
-
-            save_all_tasks(tasks)
+        if self.selected_task is not None:
+            cur_selected = self.selected_task.id
 
         db_tasks = get_all_tasks()
         self.tasks = {}
+
+        if len(db_tasks) == 0:
+            # No need to populate the list if there are no tasks
+            return
 
         for t in db_tasks:
             self.tasks[t.id] = t
@@ -115,6 +142,20 @@ class TbeToDo:
                     values=(t.state, t.importance if t.importance is not None else ""),
                     tags=self._get_tags_for_task(t),
                 )
+
+        if cur_selected is not None:
+            self.task_list.see(cur_selected)
+            self.task_list.selection_set([cur_selected])
+            self._on_task_selected(None)
+
+    def _get_state_selector_lambda(self, state: TaskState):
+        def _lambda():
+            if self.selected_task is not None:
+                self.selected_task.state = state
+                update_task(self.selected_task)
+                self.populate_task_list()
+
+        return _lambda
 
     def _get_tags_for_task(self, task: Task) -> tuple[str]:
         tags = []
@@ -185,10 +226,23 @@ class TbeToDo:
 
     def _on_task_selected(self, event):
         self.selected_task = self.tasks[self.task_list.focus()] if self.task_list.focus() else None
-        print(self.selected_task)
+
+        self._update_task_info()
 
         for button in self.task_dependent_buttons:
             button.configure(state=NORMAL if self.selected_task is not None else DISABLED)
+
+    def _update_task_info(self):
+        self.task_info.text.configure(state="normal")
+        self.task_info.delete("1.0", "end")
+
+        if self.selected_task is not None:
+            self.task_info.insert(END, "Task Notes", "title")
+
+            if self.selected_task.note is not None:
+                self.task_info.insert(END, "\n\n" + self.selected_task.note)
+
+        self.task_info.text.configure(state="disabled")
 
 
 if __name__ == "__main__":

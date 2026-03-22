@@ -44,7 +44,7 @@ class AddTaskDialog(tb.Toplevel):
         self.notes_text.pack(fill=BOTH, expand=YES, pady=(0, 15))
 
         self.notes_text.delete("1.0", "end")
-        if task.note is not None:
+        if task is not None and task.note is not None:
             self.notes_text.insert("1.0", task.note)
 
         # Buttons
