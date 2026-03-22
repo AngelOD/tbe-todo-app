@@ -1,10 +1,11 @@
 import uuid
-from textwrap import wrap
+import re
 
 import ttkbootstrap as tb
 from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.constants import *
 from ttkbootstrap.widgets.scrolled import ScrolledText
+
 from models import Task
 from models.enums import TaskState
 from db import init_db, add_task, get_all_tasks, remove_task, update_task
@@ -49,11 +50,21 @@ class TbeToDo:
         info_frame.pack(side=RIGHT, fill=Y)
         info_frame.pack_propagate(False)
 
-        self.task_info = ScrolledText(info_frame, bootstyle=LIGHT, padding=10, autohide=True, wrap=WORD)
+        # TODO: Implement markdown rendering for task descriptions
+        # if HAS_MARKDOWN:
+            # html_version = markdown2.markdown(task.note)
+            # self.task_info = HTMLLabel(info_frame, html=html_version, padding=20)
+            # self.task_info.pack(fill=BOTH, expand=True)
+
+        self.task_info = ScrolledText(info_frame, bootstyle=LIGHT, padding=10, autohide=True, wrap=WORD, font=("Helvetica", 10))
         self.task_info.pack(fill=BOTH, expand=True)
 
         # Set up styles
-        self.task_info.tag_config("title", font=("Arial", 20, "bold"))
+        self.task_info.tag_config("title", font=("Arial", 18, "bold underline"))
+        self.task_info.tag_config("h2", font=("Arial", 14, "bold"))
+        self.task_info.tag_config("bold", font=("Helvetica", 10, "bold"))
+        self.task_info.tag_config("italic", font=("Helvetica", 10, "italic"))
+        self.task_info.tag_config("bold_italic", font=("Helvetica", 10, "bold italic"))
 
         self.task_info.text.configure(state="disabled")
 
@@ -165,6 +176,42 @@ class TbeToDo:
 
         return tuple(tags)
 
+    def _insert_markdown(self, text: str):
+        part_text: str | None
+        part_tag: str | None
+
+        parts = re.split(r"(\*\*.*?\*\*|__.*?__|\{h2}.*?\{/h2})", text)
+
+        for i, part in enumerate(parts):
+            part_text = None
+            part_tag = None
+
+            if part.startswith("**") and part.endswith("**"):
+                if part.startswith("**__") and part.endswith("__**"):
+                    part_text = part[4:-4]
+                    part_tag = "bold_italic"
+                else:
+                    part_text = part[2:-2]
+                    part_tag = "bold"
+            elif part.startswith("__") and part.endswith("__"):
+                if part.startswith("__**") and part.endswith("**__"):
+                    part_text = part[4:-4]
+                    part_tag = "bold_italic"
+                else:
+                    part_text = part[2:-2]
+                    part_tag = "italic"
+            elif part.startswith("{h2}") and part.endswith("{/h2}"):
+                part_text = part[4:-5]
+                part_tag = "h2"
+            else:
+                part_text = part
+
+            if part_text is not None:
+                if part_tag is not None:
+                    self.task_info.insert(END, part_text, part_tag)
+                else:
+                    self.task_info.insert(END, part_text)
+
     def _on_add_task(self):
         dialog = AddTaskDialog(self.app, is_root=True)
         self.app.wait_window(dialog)
@@ -238,9 +285,10 @@ class TbeToDo:
 
         if self.selected_task is not None:
             self.task_info.insert(END, "Task Notes", "title")
+            self.task_info.insert(END, "\n\n")
 
             if self.selected_task.note is not None:
-                self.task_info.insert(END, "\n\n" + self.selected_task.note)
+                self._insert_markdown(self.selected_task.note)
 
         self.task_info.text.configure(state="disabled")
 
