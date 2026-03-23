@@ -229,16 +229,19 @@ class TbeToDo:
         if self.selected_task is None:
             return
 
+        parent_id = self.selected_task.id
+        parent_level = self.selected_task.level
+
         dialog = AddTaskDialog(self.app, is_root=False)
         self.app.wait_window(dialog)
 
         if dialog.result is not None:
-            parent_id = self.selected_task.id
+            level = parent_level + 1
             title = dialog.result["title"]
             importance = dialog.result["importance"] if "importance" in dialog.result else None
             state = TaskState.NEW
 
-            add_task(Task(id=str(uuid.uuid4()), parent_id=parent_id, title=title, importance=importance, state=state, note=dialog.result["notes"]))
+            add_task(Task(id=str(uuid.uuid4()), parent_id=parent_id, level=level, title=title, importance=importance, state=state, note=dialog.result["notes"]))
 
             self.populate_task_list()
 
