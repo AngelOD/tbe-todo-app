@@ -78,13 +78,18 @@ class TbeToDo:
 
     def setup_task_list(self, main_content: tb.Frame):
         """Task list on the left side"""
-        self.task_list = tb.Treeview(main_content, columns=("state", "importance"), selectmode=BROWSE,
+        self.task_list = tb.Treeview(main_content, columns=("external_id", "state", "importance"), selectmode=BROWSE,
                                      bootstyle=(LIGHT, SUNKEN))
         self.task_list.pack(fill=BOTH, expand=True)
 
         self.task_list.heading("#0", text="Task")
+        self.task_list.column("#0", stretch=True, minwidth=200)
+        self.task_list.heading("external_id", text="External ID")
+        self.task_list.column("external_id", stretch=False, width=200)
         self.task_list.heading("state", text="State")
+        self.task_list.column("state", stretch=False, width=120)
         self.task_list.heading("importance", text="Importance")
+        self.task_list.column("importance", stretch=False, width=120)
 
         # bold, italic, underline, overstrike
         self.task_list.tag_configure("completed", background="green", foreground="white", font=("", 10, "overstrike"))
@@ -143,7 +148,10 @@ class TbeToDo:
                     "end",
                     id=t.id,
                     text=t.title,
-                    values=(t.state, t.importance if t.importance is not None else ""),
+                    values=(
+                        t.external_id if t.external_id is not None else "",
+                        t.state,
+                        t.importance if t.importance is not None else ""),
                     open=False,
                     tags=self._get_tags_for_task(t),
                 )
@@ -218,10 +226,11 @@ class TbeToDo:
 
         if dialog.result is not None:
             title = dialog.result["title"]
+            external_id = dialog.result["external_id"]
             importance = dialog.result["importance"] if "importance" in dialog.result else None
             state = TaskState.NEW
 
-            add_task(Task(id=str(uuid.uuid4()), title=title, importance=importance, state=state, note=dialog.result["notes"]))
+            add_task(Task(id=str(uuid.uuid4()), title=title, importance=importance, state=state, note=dialog.result["notes"], external_id=external_id))
 
             self.populate_task_list()
 
@@ -238,10 +247,11 @@ class TbeToDo:
         if dialog.result is not None:
             level = parent_level + 1
             title = dialog.result["title"]
+            external_id = dialog.result["external_id"]
             importance = dialog.result["importance"] if "importance" in dialog.result else None
             state = TaskState.NEW
 
-            add_task(Task(id=str(uuid.uuid4()), parent_id=parent_id, level=level, title=title, importance=importance, state=state, note=dialog.result["notes"]))
+            add_task(Task(id=str(uuid.uuid4()), parent_id=parent_id, level=level, title=title, importance=importance, state=state, note=dialog.result["notes"], external_id=external_id))
 
             self.populate_task_list()
 
@@ -254,6 +264,7 @@ class TbeToDo:
 
         if dialog.result is not None:
             self.selected_task.title = dialog.result["title"]
+            self.selected_task.external_id = dialog.result["external_id"]
             self.selected_task.importance = dialog.result["importance"] if "importance" in dialog.result else None
             self.selected_task.note = dialog.result["notes"]
 

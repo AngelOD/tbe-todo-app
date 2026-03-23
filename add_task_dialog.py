@@ -23,6 +23,12 @@ class AddTaskDialog(tb.Toplevel):
         self.title_entry.pack(fill=X, pady=(0, 15))
         self.title_entry.focus_set()
 
+        # ----- External ID -----
+        tb.Label(container, text="External ID:").pack(fill=X, pady=(0, 5))
+        self.external_id_var = tb.StringVar(value=task.external_id if task else None)
+        self.external_id_entry = tb.Entry(container, textvariable=self.external_id_var)
+        self.external_id_entry.pack(fill=X, pady=(0, 15))
+
         # ----- Importance Dropdown -----
         self.importance_var = tb.StringVar()
         if is_root:
@@ -64,6 +70,7 @@ class AddTaskDialog(tb.Toplevel):
     def on_submit(self):
         self.result = {
             "title": self.title_var.get(),
+            "external_id": self.external_id_var.get(),
             "importance": TaskImportance(self.importance_var.get()) if self.importance_var.get() else None,
             "notes": self.notes_text.get("1.0", "end")
         }

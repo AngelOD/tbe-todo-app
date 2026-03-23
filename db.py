@@ -6,6 +6,8 @@ from models import Task
 
 db_name = "todo_list.db"
 
+latest_tasks_table_version = 2
+
 
 def adapt_datetime_iso(val):
     return val.replace(tzinfo=None).isoformat()
@@ -41,19 +43,23 @@ def init_db() -> None:
                     level INTEGER NOT NULL,
                     state TEXT NOT NULL,
                     importance TEXT,
-                    note TEXT
+                    note TEXT,
+                    external_id TEXT
                 )
             """)
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_tasks_parent_id ON tasks (parent_id)")
-            _set_table_version("tasks", 1)
+            _set_table_version("tasks", latest_tasks_table_version)
+        elif tasks_table_version < 2:
+            cursor.execute("ALTER TABLE tasks ADD COLUMN external_id TEXT")
+            _set_table_version("tasks", latest_tasks_table_version)
 
 def add_task(task: Task) -> None:
     """Add a task to the database."""
     with sqlite3.connect(db_name) as conn:
         cursor = conn.cursor()
 
-        query = "INSERT OR REPLACE INTO tasks (id, parent_id, title, level, state, importance, note) VALUES (?, ?, ?, ?, ?, ?, ?)"
-        params = (task.id, task.parent_id, task.title, task.level, task.state, task.importance, task.note)
+        query = "INSERT OR REPLACE INTO tasks (id, parent_id, title, level, state, importance, note, external_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        params = (task.id, task.parent_id, task.title, task.level, task.state, task.importance, task.note, task.external_id)
         cursor.execute(query, params)
 
 def get_all_tasks() -> List[Task]:
@@ -61,13 +67,13 @@ def get_all_tasks() -> List[Task]:
     with sqlite3.connect(db_name) as conn:
         cursor = conn.cursor()
 
-        cursor.execute("SELECT id, parent_id, title, level, state, importance, note FROM tasks")
+        cursor.execute("SELECT id, parent_id, title, level, state, importance, note, external_id FROM tasks")
 
         db_tasks = cursor.fetchall()
 
         tasks = []
         for row in db_tasks:
-            task = Task(id=row[0], parent_id=row[1], title=row[2], level=row[3], state=row[4], importance=row[5], note=row[6])
+            task = Task(id=row[0], parent_id=row[1], title=row[2], level=row[3], state=row[4], importance=row[5], note=row[6], external_id=row[7])
             tasks.append(task)
 
         return sorted(tasks)
@@ -91,8 +97,8 @@ def save_all_tasks(tasks: List[Task]) -> None:
     with sqlite3.connect(db_name) as conn:
         cursor = conn.cursor()
 
-        query = "INSERT OR REPLACE INTO tasks (id, parent_id, title, level, state, importance, note) VALUES (?, ?, ?, ?, ?, ?, ?)"
-        params = [(t.id, t.parent_id, t.title, t.level, t.state, t.importance, t.note) for t in tasks]
+        query = "INSERT OR REPLACE INTO tasks (id, parent_id, title, level, state, importance, note, external_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        params = [(t.id, t.parent_id, t.title, t.level, t.state, t.importance, t.note, t.external_id) for t in tasks]
         cursor.executemany(query, params)
 
 def update_task(task: Task) -> None:
@@ -100,8 +106,8 @@ def update_task(task: Task) -> None:
     with sqlite3.connect(db_name) as conn:
         cursor = conn.cursor()
 
-        query = "UPDATE tasks SET parent_id=?, title=?, level=?, state=?, importance=?, note=? WHERE id=?"
-        params = (task.parent_id, task.title, task.level, task.state, task.importance, task.note, task.id)
+        query = "UPDATE tasks SET parent_id=?, title=?, level=?, state=?, importance=?, note=?, external_id=? WHERE id=?"
+        params = (task.parent_id, task.title, task.level, task.state, task.importance, task.note, task.external_id, task.id)
         cursor.execute(query, params)
 
 

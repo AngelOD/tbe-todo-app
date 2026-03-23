@@ -12,6 +12,7 @@ class Task:
     importance: TaskImportance | None = None
     state: TaskState = TaskState.NEW
     note: str | None = None
+    external_id: str | None = None
 
     def is_completed(self) -> bool:
         return self.state == TaskState.COMPLETED
